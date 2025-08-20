@@ -1,0 +1,156 @@
+﻿@model IEnumerable<Stationary.Models.Product>
+
+@{
+    ViewData["Title"] = "Product Catalog";
+}
+
+<link rel="stylesheet" href="~/css/product-catalog.css" />
+
+<div class="cart-page-button" style="text-align:right; margin-bottom:20px;">
+    <a href="@Url.Action("Cart", "User")" class="cart-btn">
+        Go to Cart
+        <span id="cart-count">0</span>
+    </a>
+</div>
+
+<div class="catalog-container">
+    <div class="catalog-header">
+        <h1 class="catalog-title">Product Catalog</h1>
+        <p class="catalog-subtitle">Discover our amazing collection of stationary products</p>
+    </div>
+
+    <div class="search-container">
+        <form method="get" action="@Url.Action("Index")" class="search-form" id="searchForm">
+            <div class="search-group">
+                <input type="text" name="search" class="search-input" placeholder="Search by product name..." value="@ViewBag.SearchTerm" />
+            </div>
+            <div class="search-group">
+                <input type="text" name="category" class="search-input" placeholder="Search by category..." value="@ViewBag.CategoryTerm" />
+            </div>
+            <button type="submit" class="search-btn">
+                <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                Search
+            </button>
+        </form>
+    </div>
+
+    <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <p>Searching products...</p>
+    </div>
+
+    <div class="products-grid">
+        @if (Model != null && Model.Any())
+        {
+            @foreach (var item in Model)
+            {
+                <div class="product-card">
+                    <div class="product-image-container">
+                        @if (!string.IsNullOrEmpty(item.ImagePath))
+                        {
+                            <img src="@item.ImagePath" alt="@item.Name" class="product-image" />
+                        }
+                        <div class="product-image-placeholder" style="@(!string.IsNullOrEmpty(item.ImagePath) ? "display: none;" : "")">
+                            <svg fill="currentColor" viewBox="0 0 24 24" width="48" height="48">
+                                <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="product-content">
+                        <h4 class="product-name">@item.Name</h4>
+                        <span class="product-category">@item.Category</span>
+                        <div class="product-price">$@item.Price.ToString("F2")</div>
+
+                        <div class="quantity-controls" style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+                            <button class="decrease-btn" data-id="@item.Id">-</button>
+                            <span class="quantity" id="qty-@item.Id">1</span>
+                            <button class="increase-btn" data-id="@item.Id">+</button>
+                            <button class="add-to-cart-btn" data-id="@item.Id">Add to Cart</button>
+                        </div>
+                    </div>
+
+                </div>
+            }
+        }
+        else
+        {
+            <div class="no-products">
+                <svg class="no-products-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                </svg>
+                <h3>No products found</h3>
+                <p>Try adjusting your search criteria or browse all products.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<script src="~/js/product-catalog.js"></script>
+<script>
+    $(document).ready(function() {
+    // Increase quantity AND add to cart immediately
+    $('.increase-btn').click(function() {
+        var id = $(this).data('id');
+        var qtySpan = $('#qty-' + id);
+        var qty = parseInt(qtySpan.text());
+        qty++;  // increase locally
+        qtySpan.text(qty);
+
+        // Call AddToCart
+        $.ajax({
+            url: '@Url.Action("AddToCart", "User")',
+            type: 'POST',
+            data: { id: id, quantity: 1 }, // only 1 item per click
+            success: function(response) {
+                if(response.success) {
+                    // Optional: update cart count
+                } else {
+                    alert(response.message);
+                    if(response.redirect) window.location.href = '/User/Login';
+                }
+            },
+            error: function() { alert("Something went wrong."); }
+        });
+    });
+
+
+           $('.decrease-btn').click(function() {
+        var id = $(this).data('id');
+        var qtySpan = $('#qty-' + id);
+        var qty = parseInt(qtySpan.text());
+        if(qty > 1) {
+            qty--;  // decrease locally
+            qtySpan.text(qty);
+
+            // Update cart quantity
+            $.ajax({
+                url: '@Url.Action("AddToCart", "User")',
+                type: 'POST',
+                data: { id: id, quantity: -1 }, // negative quantity
+                success: function(response) {
+                    if(!response.success) alert(response.message);
+                },
+                error: function() { alert("Something went wrong."); }
+            });
+        } else if(qty === 1) {
+            // remove from cart
+            $.ajax({
+                url: '@Url.Action("RemoveFromCart", "User")',
+                type: 'POST',
+                data: { id: id },
+                success: function(response) {
+                    if(response.success) {
+                        qtySpan.text(0);
+                    }
+                },
+                error: function() { alert("Something went wrong."); }
+            });
+        }
+    });
+
+
+    });
+</script>
+

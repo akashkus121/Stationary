@@ -1,0 +1,27 @@
+﻿@model IEnumerable<Stationary.Models.Product>
+
+<h2>Product List</h2>
+<a href="@Url.Action("Create", "Admin")" class="btn btn-primary">Add Product</a>
+
+<table class="table table-bordered">
+    <tr>
+        <th>Name</th>
+        <th>Category</th>
+        <th>Price</th>
+        <th>Image</th>
+        <th>Actions</th>
+    </tr>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.Name</td>
+            <td>@item.Category</td>
+            <td>@item.Price</td>
+            <td><img src="@item.ImagePath" width="50" height="50" /></td>
+            <td>
+                @Html.ActionLink("Edit", "Edit", new { id = item.Id }) |
+                @Html.ActionLink("Delete", "Delete", new { id = item.Id })
+            </td>
+        </tr>
+    }
+</table>
