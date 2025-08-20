@@ -1,4 +1,4 @@
-﻿document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function () {
     // Add staggered animation to product cards
     const productCards = document.querySelectorAll('.product-card');
     productCards.forEach((card, index) => {
@@ -156,7 +156,7 @@
     var qty = parseInt($('#qty-' + id).text());
 
     $.ajax({
-        url: '@Url.Action("AddToCart", "User")',
+        url: '/User/AddToCart',
     type: 'POST',
     data: {id: id, quantity: qty },
     success: function(response) {

@@ -1,4 +1,4 @@
-﻿@model IEnumerable<Stationary.Models.Product>
+@model IEnumerable<Stationary.Models.Product>
 
 @{
     ViewData["Title"] = "Product Catalog";
@@ -88,69 +88,5 @@
 </div>
 
 <script src="~/js/product-catalog.js"></script>
-<script>
-    $(document).ready(function() {
-    // Increase quantity AND add to cart immediately
-    $('.increase-btn').click(function() {
-        var id = $(this).data('id');
-        var qtySpan = $('#qty-' + id);
-        var qty = parseInt(qtySpan.text());
-        qty++;  // increase locally
-        qtySpan.text(qty);
 
-        // Call AddToCart
-        $.ajax({
-            url: '@Url.Action("AddToCart", "User")',
-            type: 'POST',
-            data: { id: id, quantity: 1 }, // only 1 item per click
-            success: function(response) {
-                if(response.success) {
-                    // Optional: update cart count
-                } else {
-                    alert(response.message);
-                    if(response.redirect) window.location.href = '/User/Login';
-                }
-            },
-            error: function() { alert("Something went wrong."); }
-        });
-    });
-
-
-           $('.decrease-btn').click(function() {
-        var id = $(this).data('id');
-        var qtySpan = $('#qty-' + id);
-        var qty = parseInt(qtySpan.text());
-        if(qty > 1) {
-            qty--;  // decrease locally
-            qtySpan.text(qty);
-
-            // Update cart quantity
-            $.ajax({
-                url: '@Url.Action("AddToCart", "User")',
-                type: 'POST',
-                data: { id: id, quantity: -1 }, // negative quantity
-                success: function(response) {
-                    if(!response.success) alert(response.message);
-                },
-                error: function() { alert("Something went wrong."); }
-            });
-        } else if(qty === 1) {
-            // remove from cart
-            $.ajax({
-                url: '@Url.Action("RemoveFromCart", "User")',
-                type: 'POST',
-                data: { id: id },
-                success: function(response) {
-                    if(response.success) {
-                        qtySpan.text(0);
-                    }
-                },
-                error: function() { alert("Something went wrong."); }
-            });
-        }
-    });
-
-
-    });
-</script>
 
