@@ -1,0 +1,221 @@
+﻿html, body {
+    overflow-y: hidden; /* disables vertical scroll */
+}
+
+
+.welcome-container {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+.welcome-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    padding: 60px 40px;
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+    animation: slideUp 0.6s ease-out;
+}
+
+@@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.welcome-title {
+    color: #2d3748;
+    font-size: 2.8rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.welcome-subtitle {
+    color: #718096;
+    margin-bottom: 40px;
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+.portal-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 30px;
+}
+
+.portal-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 18px 30px;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+    .portal-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .portal-btn:hover::before {
+        left: 100%;
+    }
+
+.admin-btn {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(66, 153, 225, 0.3);
+}
+
+    .admin-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(66, 153, 225, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+.user-btn {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+}
+
+    .user-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(72, 187, 120, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+.portal-btn:active {
+    transform: translateY(-1px);
+}
+
+.shop-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: float 3s ease-in-out infinite;
+}
+
+@@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.btn-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.decorative-elements {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.floating-shape {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    animation: floatShapes 6s ease-in-out infinite;
+}
+
+.shape-1 {
+    width: 60px;
+    height: 60px;
+    top: 20%;
+    left: 10%;
+    animation-delay: 0s;
+}
+
+.shape-2 {
+    width: 40px;
+    height: 40px;
+    top: 60%;
+    right: 15%;
+    animation-delay: 2s;
+}
+
+.shape-3 {
+    width: 80px;
+    height: 80px;
+    bottom: 20%;
+    left: 20%;
+    animation-delay: 4s;
+}
+
+@@keyframes floatShapes {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+    }
+
+    50% {
+        transform: translateY(-20px) rotate(180deg);
+    }
+}
+
+@@media (max-width: 768px) {
+    .welcome-card {
+        padding: 40px 30px;
+        margin: 20px;
+    }
+
+    .welcome-title {
+        font-size: 2.2rem;
+    }
+
+    .portal-buttons {
+        gap: 15px;
+    }
+
+    .portal-btn {
+        padding: 15px 25px;
+        font-size: 16px;
+    }
+}

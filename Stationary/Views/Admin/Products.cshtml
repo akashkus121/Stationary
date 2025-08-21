@@ -1,27 +1,77 @@
 ﻿@model IEnumerable<Stationary.Models.Product>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stationary Products - Admin Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="~/css/site.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>
+                <i class="fas fa-clipboard-list"></i>
+                Product Management
+            </h2>
+            <a href="@Url.Action("Create", "Admin")" class="btn-primary">
+                <i class="fas fa-plus"></i>
+                Add New Product
+            </a>
+        </div>
 
-<h2>Product List</h2>
-<a href="@Url.Action("Create", "Admin")" class="btn btn-primary">Add Product</a>
+        <div class="table-container">
+            @if (Model != null && Model.Any())
+            {
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-tag"></i> Product Name</th>
+                            <th><i class="fas fa-folder"></i> Category</th>
+                            <th><i class="fas fa-dollar-sign"></i> Price</th>
+                            <th><i class="fas fa-image"></i> Image</th>
+                            <th><i class="fas fa-cogs"></i> Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td class="product-name">@item.Name</td>
+                                <td><span class="product-category">@item.Category</span></td>
+                                <td class="product-price">@item.Price</td>
+                                <td>
+                                    <img src="@item.ImagePath" alt="@item.Name" class="product-image"
+                                         onerror="handleImageError(this)" />
+                                </td>
+                                <td>
+                                    <div class="actions">
+                                        @Html.ActionLink("Edit", "Edit", new { id = item.Id }, new { @class = "action-btn edit-btn" })
+                                        @Html.ActionLink("Delete", "Delete", new { id = item.Id }, new { @class = "action-btn delete-btn", onclick = "return confirmDelete()" })
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <i class="fas fa-box-open"></i>
+                    <h3>No Products Found</h3>
+                    <p>Start by adding your first stationary product to the inventory.</p>
+                    <a href="@Url.Action("Create", "Admin")" class="btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Add First Product
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
 
-<table class="table table-bordered">
-    <tr>
-        <th>Name</th>
-        <th>Category</th>
-        <th>Price</th>
-        <th>Image</th>
-        <th>Actions</th>
-    </tr>
-    @foreach (var item in Model)
-    {
-        <tr>
-            <td>@item.Name</td>
-            <td>@item.Category</td>
-            <td>@item.Price</td>
-            <td><img src="@item.ImagePath" width="50" height="50" /></td>
-            <td>
-                @Html.ActionLink("Edit", "Edit", new { id = item.Id }) |
-                @Html.ActionLink("Delete", "Delete", new { id = item.Id })
-            </td>
-        </tr>
-    }
-</table>
+    <script src="~/js/products.js"></script>
+</body>
+</html>

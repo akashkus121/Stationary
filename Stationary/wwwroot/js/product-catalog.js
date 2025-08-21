@@ -1,4 +1,7 @@
-document.addEventListener('DOMContentLoaded', function () {
+$(document).ready(function () {
+    updateCartCount();
+
+    
     // Add staggered animation to product cards
     const productCards = document.querySelectorAll('.product-card');
     productCards.forEach((card, index) => {
@@ -10,20 +13,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const loadingContainer = document.querySelector('.loading-container');
 
     if (searchForm) {
-        searchForm.addEventListener('submit', function (e) {
-            // Show loading state
+        searchForm.addEventListener('submit', function () {
             if (loadingContainer) {
                 loadingContainer.style.display = 'block';
             }
-
-            // Hide products temporarily
             const productsGrid = document.querySelector('.products-grid');
             if (productsGrid) {
                 productsGrid.style.opacity = '0.5';
             }
-
-            // In a real application, this would be handled by the server
-            // This is just for visual feedback
         });
     }
 
@@ -33,36 +30,26 @@ document.addEventListener('DOMContentLoaded', function () {
         input.addEventListener('focus', function () {
             this.parentElement.style.transform = 'translateY(-2px)';
         });
-
         input.addEventListener('blur', function () {
             this.parentElement.style.transform = 'translateY(0)';
         });
     });
 
-    // Add to cart button animations
-    const addToCartBtns = document.querySelectorAll('.add-to-cart-btn');
-    addToCartBtns.forEach(btn => {
-        btn.addEventListener('click', function (e) {
-            // Add click animation
-            this.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                this.style.transform = '';
-            }, 150);
+    // Search input enhancements
+    const searchInputName = document.querySelector('input[name="search"]');
+    const searchInputCategory = document.querySelector('input[name="category"]');
 
-            // Optional: Add to cart feedback (you can customize this)
-            const originalText = this.innerHTML;
-            this.innerHTML = '<div class="loading-spinner" style="width: 18px; height: 18px; border: 2px solid white; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>';
-
-            setTimeout(() => {
-                this.innerHTML = '✓ Added!';
-                this.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
-
-                setTimeout(() => {
-                    this.innerHTML = originalText;
-                }, 1500);
-            }, 800);
+    if (searchInputName) {
+        searchInputName.addEventListener('input', function () {
+            this.style.borderColor = this.value.length > 0 ? '#48bb78' : '#e2e8f0';
         });
-    });
+    }
+
+    if (searchInputCategory) {
+        searchInputCategory.addEventListener('input', function () {
+            this.style.borderColor = this.value.length > 0 ? '#48bb78' : '#e2e8f0';
+        });
+    }
 
     // Image error handling
     const productImages = document.querySelectorAll('.product-image');
@@ -74,7 +61,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 placeholder.style.display = 'flex';
             }
         });
-
         img.addEventListener('load', function () {
             const placeholder = this.parentElement.querySelector('.product-image-placeholder');
             if (placeholder) {
@@ -83,36 +69,11 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Search input enhancements
-    const searchInputName = document.querySelector('input[name="search"]');
-    const searchInputCategory = document.querySelector('input[name="category"]');
-
-    if (searchInputName) {
-        searchInputName.addEventListener('input', function () {
-            if (this.value.length > 0) {
-                this.style.borderColor = '#48bb78';
-            } else {
-                this.style.borderColor = '#e2e8f0';
-            }
-        });
-    }
-
-    if (searchInputCategory) {
-        searchInputCategory.addEventListener('input', function () {
-            if (this.value.length > 0) {
-                this.style.borderColor = '#48bb78';
-            } else {
-                this.style.borderColor = '#e2e8f0';
-            }
-        });
-    }
-
     // Intersection Observer for scroll animations
     const observerOptions = {
         threshold: 0.1,
         rootMargin: '0px 0px -50px 0px'
     };
-
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -122,58 +83,87 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }, observerOptions);
 
-    // Observe product cards for scroll animations
     productCards.forEach(card => {
         card.style.opacity = '0';
         card.style.transform = 'translateY(20px)';
         card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
         observer.observe(card);
     });
-});
 
-
-    $(document).ready(function() {
-
-        // Increase quantity
-        $('.increase-btn').click(function () {
-            var id = $(this).data('id');
-            var qtySpan = $('#qty-' + id);
-            var qty = parseInt(qtySpan.text());
-            qtySpan.text(qty + 1);
-        });
-
-    // Decrease quantity
-    $('.decrease-btn').click(function() {
-        var id = $(this).data('id');
-    var qtySpan = $('#qty-' + id);
-    var qty = parseInt(qtySpan.text());
-        if(qty > 1) qtySpan.text(qty - 1);
+    // Quantity controls
+    $('.increase-btn').click(function () {
+        const id = $(this).data('id');
+        const qtySpan = $(`#qty-${id}`);
+        let qty = parseInt(qtySpan.text());
+        qtySpan.text(qty + 1);
     });
 
-    // Add to Cart with selected quantity
-    $('.add-to-cart-btn').click(function() {
-        var id = $(this).data('id');
-    var qty = parseInt($('#qty-' + id).text());
+    $('.decrease-btn').click(function () {
+        const id = $(this).data('id');
+        const qtySpan = $(`#qty-${id}`);
+        let qty = parseInt(qtySpan.text());
+        if (qty > 1) {
+            qtySpan.text(qty - 1);
+        }
+    });
 
-    $.ajax({
-        url: '/User/AddToCart',
-    type: 'POST',
-    data: {id: id, quantity: qty },
-    success: function(response) {
-                if(response.success) {
-        alert("Product added to cart!");
-                    // Optional: update #cart-count here
+    // Add to Cart with AJAX
+    $('.add-to-cart-btn').click(function () {
+        const button = $(this);
+        const id = button.data('id');
+        const qty = parseInt($(`#qty-${id}`).text());  // ✅ get updated quantity from span
+        const originalText = button.html();
+
+        button.prop('disabled', true).html('<div class="loading-spinner"></div>');
+
+        $.ajax({
+            url: '/User/AddToCart',
+            type: 'POST',
+            data: { id: id, quantity: qty },  // ✅ send updated qty
+            success: function (response) {
+                if (response.success) {
+                    button.html('✓ Added!');
+
+                    // update cart count from server response (fresh value)
+                    $('#cart-count').text(response.count);
+
+                    // reset product qty to 1
+                    $(`#qty-${id}`).text(1);
+
+                    setTimeout(() => {
+                        button.html(originalText).prop('disabled', false);
+                    }, 1500);
                 } else {
-        alert(response.message);
-    if(response.redirect) window.location.href = '/User/Login';
+                    alert(response.message);
+                    if (response.redirect) {
+                        window.location.href = '/User/Login';
+                    }
+                    button.html(originalText).prop('disabled', false);
                 }
-            },
-    error: function() {
-        alert("Something went wrong.");
+            }
+,
+            error: function () {
+                alert('Something went wrong.');
+                button.html(originalText).prop('disabled', false);
             }
         });
     });
 
+
+   
+        // Function to update cart count
+    function updateCartCount() {
+        $.ajax({
+            url: '@Url.Action("GetCartCount", "User")',
+            type: 'GET',
+            success: function (response) {
+                $('#cart-count').text(response.count || 0);
+            },
+            error: function () {
+                console.error("Failed to fetch cart count");
+            }
+        });
+    }
 });
 
-
+  

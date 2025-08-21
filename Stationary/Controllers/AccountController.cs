@@ -1,17 +1,24 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Stationary.Data;
+using Stationary.Models;
 using System.Linq;
 
 namespace Stationary.Controllers
 {
     public class AccountController : Controller
     {
+
         private readonly ApplicationDbContext _db;
+
+       
 
         public AccountController(ApplicationDbContext db)
         {
             _db = db;
+           
+
         }
 
         public IActionResult Login(string role)
@@ -35,7 +42,7 @@ namespace Stationary.Controllers
                 HttpContext.Session.SetString("Role", user.Role); // "Admin" or "User"
 
                 if (user.Role == "Admin")
-                    return RedirectToAction("Create", "Admin");
+                    return RedirectToAction("Products", "Admin");
                 else
                     return RedirectToAction("Index", "User");
             }

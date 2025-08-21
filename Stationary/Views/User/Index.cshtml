@@ -6,17 +6,18 @@
 
 <link rel="stylesheet" href="~/css/product-catalog.css" />
 
-<div class="cart-page-button" style="text-align:right; margin-bottom:20px;">
+<div class="cart-page-button">
     <a href="@Url.Action("Cart", "User")" class="cart-btn">
         Go to Cart
         <span id="cart-count">0</span>
     </a>
 </div>
 
+
 <div class="catalog-container">
     <div class="catalog-header">
-        <h1 class="catalog-title">Product Catalog</h1>
-        <p class="catalog-subtitle">Discover our amazing collection of stationary products</p>
+        <h2 class="catalog-title">Product Catalog</h2>
+        <p class="catalog-subtitle">Browse our stationary collection</p>
     </div>
 
     <div class="search-container">
@@ -63,14 +64,13 @@
                         <span class="product-category">@item.Category</span>
                         <div class="product-price">$@item.Price.ToString("F2")</div>
 
-                        <div class="quantity-controls" style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+                        <div class="quantity-controls">
                             <button class="decrease-btn" data-id="@item.Id">-</button>
                             <span class="quantity" id="qty-@item.Id">1</span>
                             <button class="increase-btn" data-id="@item.Id">+</button>
                             <button class="add-to-cart-btn" data-id="@item.Id">Add to Cart</button>
                         </div>
                     </div>
-
                 </div>
             }
         }
@@ -86,7 +86,9 @@
         }
     </div>
 </div>
+<!-- Include jQuery first -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
+<!-- Your script second -->
 <script src="~/js/product-catalog.js"></script>
-
 

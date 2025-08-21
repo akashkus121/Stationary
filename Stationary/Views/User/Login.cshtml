@@ -22,7 +22,7 @@
             <p class="login-subtitle">Sign in to your account</p>
         </div>
 
-        <form asp-action="Login" asp-controller="Account" method="post" id="loginForm">
+        <form asp-action="Login" asp-controller="Account" method="post" id="loginForm" ">
             <div class="form-group">
                 <input type="text" class="form-control" id="username" name="username" placeholder=" " required />
                 <label class="form-label">Username</label>
@@ -50,10 +50,7 @@
                 </div>
             </div>
 
-            <button type="submit" class="login-btn" id="loginBtn">
-                <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M10,17V14H3V10H10V7L15,12L10,17M10,2H19A2,2 0 0,1 21,4V20A2,2 0 0,1 19,22H10A2,2 0 0,1 8,20V18H10V20H19V4H10V6H8V4A2,2 0 0,1 10,2Z" />
-                </svg>
+            <button type="submit" class="login-btn">
                 Sign In
             </button>
         </form>
