@@ -1,5 +1,5 @@
 .cart-page-button {
-    text-align: left;
+    text-align: left !important;
     margin-bottom: 15px;
 }
 
