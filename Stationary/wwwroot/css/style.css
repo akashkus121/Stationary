@@ -1,2 +1,46 @@
-﻿body {
+body {
+}
+
+/* Floating logout button */
+.logout-fab {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(220, 53, 69, 0.92);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  z-index: 1050;
+}
+
+.logout-fab:hover {
+  transform: translateY(-1px);
+  background: rgba(200, 35, 51, 0.98);
+  box-shadow: 0 8px 22px rgba(0,0,0,0.22);
+}
+
+.logout-icon {
+  width: 22px;
+  height: 22px;
+  fill: #fff;
+}
+
+@media (max-width: 576px) {
+  .logout-fab {
+    top: 12px;
+    right: 12px;
+    width: 38px;
+    height: 38px;
+  }
+  .logout-icon {
+    width: 20px;
+    height: 20px;
+  }
 }
