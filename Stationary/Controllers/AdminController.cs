@@ -13,6 +13,7 @@ using ClosedXML.Excel;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using System.Data;
 
 namespace Stationary.Controllers
 {
@@ -86,33 +87,7 @@ namespace Stationary.Controllers
                 return RedirectToAction("Login", "Account");
 
             DateTime selected = (date ?? DateTime.Today).Date;
-            DateTime start = selected;
-            DateTime end = selected.AddDays(1);
-
-            var orders = _db.Orders
-                .Include(o => o.OrderItems)
-                .Where(o => o.Date >= start && o.Date < end)
-                .ToList();
-
-            var userIds = orders.Select(o => o.UserId).Distinct().ToList();
-            var users = _db.Users.Where(u => userIds.Contains(u.Id)).ToDictionary(u => u.Id, u => u.Username);
-
-            var vm = new SalesReportViewModel
-            {
-                SelectedDate = selected,
-                TotalOrders = orders.Count,
-                TotalSalesAmount = orders.Sum(o => o.TotalAmount),
-                TotalItemsSold = orders.Sum(o => o.OrderItems != null ? o.OrderItems.Sum(i => i.Quantity) : 0),
-                Rows = orders.OrderByDescending(o => o.Date).Select(o => new SalesReportRow
-                {
-                    OrderId = o.Id,
-                    OrderDate = o.Date,
-                    Username = users.TryGetValue(o.UserId, out var name) ? name : "User#" + o.UserId,
-                    Items = o.OrderItems != null ? o.OrderItems.Sum(i => i.Quantity) : 0,
-                    Amount = o.TotalAmount
-                }).ToList()
-            };
-
+            var vm = TryBuildReportWithStoredProcedure(selected) ?? BuildReportWithEf(selected);
             return View(vm);
         }
 
@@ -123,16 +98,7 @@ namespace Stationary.Controllers
                 return RedirectToAction("Login", "Account");
 
             DateTime selected = (date ?? DateTime.Today).Date;
-            DateTime start = selected;
-            DateTime end = selected.AddDays(1);
-
-            var orders = _db.Orders
-                .Include(o => o.OrderItems)
-                .Where(o => o.Date >= start && o.Date < end)
-                .ToList();
-
-            var userIds = orders.Select(o => o.UserId).Distinct().ToList();
-            var users = _db.Users.Where(u => userIds.Contains(u.Id)).ToDictionary(u => u.Id, u => u.Username);
+            var vm = TryBuildReportWithStoredProcedure(selected) ?? BuildReportWithEf(selected);
 
             using (var workbook = new XLWorkbook())
             {
@@ -151,25 +117,25 @@ namespace Stationary.Controllers
                 sheet.Range(row, 1, row, 5).Style.Font.SetBold();
                 row++;
 
-                foreach (var o in orders.OrderBy(o => o.Date))
+                foreach (var r in vm.Rows.OrderBy(r => r.OrderDate))
                 {
-                    sheet.Cell(row, 1).Value = o.Id;
-                    sheet.Cell(row, 2).Value = o.Date.ToString("yyyy-MM-dd HH:mm");
-                    sheet.Cell(row, 3).Value = users.TryGetValue(o.UserId, out var name) ? name : "User#" + o.UserId;
-                    sheet.Cell(row, 4).Value = o.OrderItems?.Sum(i => i.Quantity) ?? 0;
-                    sheet.Cell(row, 5).Value = o.TotalAmount;
+                    sheet.Cell(row, 1).Value = r.OrderId;
+                    sheet.Cell(row, 2).Value = r.OrderDate.ToString("yyyy-MM-dd HH:mm");
+                    sheet.Cell(row, 3).Value = r.Username;
+                    sheet.Cell(row, 4).Value = r.Items;
+                    sheet.Cell(row, 5).Value = r.Amount;
                     row++;
                 }
 
                 row++;
                 sheet.Cell(row, 4).Value = "Total Orders:";
-                sheet.Cell(row, 5).Value = orders.Count;
+                sheet.Cell(row, 5).Value = vm.TotalOrders;
                 row++;
                 sheet.Cell(row, 4).Value = "Total Items:";
-                sheet.Cell(row, 5).Value = orders.Sum(o => o.OrderItems != null ? o.OrderItems.Sum(i => i.Quantity) : 0);
+                sheet.Cell(row, 5).Value = vm.TotalItemsSold;
                 row++;
                 sheet.Cell(row, 4).Value = "Total Sales:";
-                sheet.Cell(row, 5).Value = orders.Sum(o => o.TotalAmount);
+                sheet.Cell(row, 5).Value = vm.TotalSalesAmount;
 
                 sheet.Columns().AdjustToContents();
 
@@ -190,17 +156,7 @@ namespace Stationary.Controllers
                 return RedirectToAction("Login", "Account");
 
             DateTime selected = (date ?? DateTime.Today).Date;
-            DateTime start = selected;
-            DateTime end = selected.AddDays(1);
-
-            var orders = _db.Orders
-                .Include(o => o.OrderItems)
-                .Where(o => o.Date >= start && o.Date < end)
-                .OrderBy(o => o.Date)
-                .ToList();
-
-            var userIds = orders.Select(o => o.UserId).Distinct().ToList();
-            var users = _db.Users.Where(u => userIds.Contains(u.Id)).ToDictionary(u => u.Id, u => u.Username);
+            var vm = TryBuildReportWithStoredProcedure(selected) ?? BuildReportWithEf(selected);
 
             byte[] pdfBytes = Document.Create(container =>
             {
@@ -230,28 +186,116 @@ namespace Stationary.Controllers
                             static IContainer CellStyle(IContainer container) => container.PaddingVertical(4).DefaultTextStyle(x => x.FontSize(10));
                         });
 
-                        foreach (var o in orders)
+                        foreach (var r in vm.Rows)
                         {
-                            table.Cell().Element(Cell).Text(o.Id.ToString());
-                            table.Cell().Element(Cell).Text(o.Date.ToString("yyyy-MM-dd HH:mm"));
-                            table.Cell().Element(Cell).Text(users.TryGetValue(o.UserId, out var name) ? name : ("User#" + o.UserId));
-                            table.Cell().Element(Cell).Text((o.OrderItems?.Sum(i => i.Quantity) ?? 0).ToString());
-                            table.Cell().Element(Cell).Text(o.TotalAmount.ToString("0.00"));
+                            table.Cell().Element(Cell).Text(r.OrderId.ToString());
+                            table.Cell().Element(Cell).Text(r.OrderDate.ToString("yyyy-MM-dd HH:mm"));
+                            table.Cell().Element(Cell).Text(r.Username);
+                            table.Cell().Element(Cell).Text(r.Items.ToString());
+                            table.Cell().Element(Cell).Text(r.Amount.ToString("0.00"));
 
                             static IContainer Cell(IContainer container) => container.PaddingVertical(3).DefaultTextStyle(x => x.FontSize(10));
                         }
                     });
 
-                    var totalOrders = orders.Count;
-                    var totalItems = orders.Sum(o => o.OrderItems != null ? o.OrderItems.Sum(i => i.Quantity) : 0);
-                    var totalSales = orders.Sum(o => o.TotalAmount);
-
-                    page.Footer().AlignRight().Text($"Totals — Orders: {totalOrders} | Items: {totalItems} | Sales: {totalSales:0.00}").FontSize(10);
+                    page.Footer().AlignRight().Text($"Totals — Orders: {vm.TotalOrders} | Items: {vm.TotalItemsSold} | Sales: {vm.TotalSalesAmount:0.00}").FontSize(10);
                 });
             }).GeneratePdf();
 
             var pdfName = $"SalesReport_{selected:yyyyMMdd}.pdf";
             return File(pdfBytes, "application/pdf", pdfName);
+        }
+
+        private SalesReportViewModel? TryBuildReportWithStoredProcedure(DateTime selected)
+        {
+            try
+            {
+                var rows = new List<SalesReportRow>();
+                int totalOrders = 0;
+                int totalItems = 0;
+                decimal totalSales = 0m;
+
+                var connection = _db.Database.GetDbConnection();
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = "dbo.usp_GetDailySalesReport";
+                    command.CommandType = CommandType.StoredProcedure;
+
+                    var p = command.CreateParameter();
+                    p.ParameterName = "@ReportDate";
+                    p.Value = selected.Date;
+                    command.Parameters.Add(p);
+
+                    if (connection.State != ConnectionState.Open)
+                        connection.Open();
+
+                    using (var reader = command.ExecuteReader())
+                    {
+                        // Result set 1: rows
+                        while (reader.Read())
+                        {
+                            rows.Add(new SalesReportRow
+                            {
+                                OrderId = reader.GetInt32(reader.GetOrdinal("OrderId")),
+                                OrderDate = reader.GetDateTime(reader.GetOrdinal("OrderDate")),
+                                Username = reader.GetString(reader.GetOrdinal("Username")),
+                                Items = reader.GetInt32(reader.GetOrdinal("Items")),
+                                Amount = reader.GetDecimal(reader.GetOrdinal("Amount"))
+                            });
+                        }
+                        // Result set 2: totals
+                        if (reader.NextResult() && reader.Read())
+                        {
+                            totalOrders = reader.GetInt32(reader.GetOrdinal("TotalOrders"));
+                            totalItems = reader.GetInt32(reader.GetOrdinal("TotalItemsSold"));
+                            totalSales = reader.GetDecimal(reader.GetOrdinal("TotalSalesAmount"));
+                        }
+                    }
+                }
+
+                return new SalesReportViewModel
+                {
+                    SelectedDate = selected,
+                    Rows = rows.OrderByDescending(r => r.OrderDate).ToList(),
+                    TotalOrders = totalOrders,
+                    TotalItemsSold = totalItems,
+                    TotalSalesAmount = totalSales
+                };
+            }
+            catch
+            {
+                return null; // fall back to EF
+            }
+        }
+
+        private SalesReportViewModel BuildReportWithEf(DateTime selected)
+        {
+            DateTime start = selected;
+            DateTime end = selected.AddDays(1);
+
+            var orders = _db.Orders
+                .Include(o => o.OrderItems)
+                .Where(o => o.Date >= start && o.Date < end)
+                .ToList();
+
+            var userIds = orders.Select(o => o.UserId).Distinct().ToList();
+            var users = _db.Users.Where(u => userIds.Contains(u.Id)).ToDictionary(u => u.Id, u => u.Username);
+
+            return new SalesReportViewModel
+            {
+                SelectedDate = selected,
+                TotalOrders = orders.Count,
+                TotalSalesAmount = orders.Sum(o => o.TotalAmount),
+                TotalItemsSold = orders.Sum(o => o.OrderItems != null ? o.OrderItems.Sum(i => i.Quantity) : 0),
+                Rows = orders.OrderByDescending(o => o.Date).Select(o => new SalesReportRow
+                {
+                    OrderId = o.Id,
+                    OrderDate = o.Date,
+                    Username = users.TryGetValue(o.UserId, out var name) ? name : "User#" + o.UserId,
+                    Items = o.OrderItems != null ? o.OrderItems.Sum(i => i.Quantity) : 0,
+                    Amount = o.TotalAmount
+                }).ToList()
+            };
         }
 
     }
