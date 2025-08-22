@@ -85,6 +85,72 @@ namespace Stationary.Controllers
             return RedirectToAction("Products");
         }
 
+        // Edit product (GET)
+        [HttpGet]
+        public IActionResult Edit(int id)
+        {
+            if (HttpContext.Session.GetString("Role") != "Admin")
+                return RedirectToAction("Login", "Account");
+
+            var product = _db.Products.FirstOrDefault(p => p.Id == id);
+            if (product == null)
+                return RedirectToAction("Products");
+
+            return View(product);
+        }
+
+        // Edit product (POST)
+        [HttpPost]
+        public async Task<IActionResult> Edit(Product model, IFormFile image)
+        {
+            if (HttpContext.Session.GetString("Role") != "Admin")
+                return RedirectToAction("Login", "Account");
+
+            var product = _db.Products.FirstOrDefault(p => p.Id == model.Id);
+            if (product == null)
+                return RedirectToAction("Products");
+
+            product.Name = model.Name;
+            product.Category = model.Category;
+            product.Price = model.Price;
+            product.StockQuantity = model.StockQuantity;
+            product.LowStockThreshold = model.LowStockThreshold;
+
+            if (image != null && image.Length > 0)
+            {
+                string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images");
+                if (!Directory.Exists(uploadsFolder))
+                    Directory.CreateDirectory(uploadsFolder);
+
+                string fileName = Path.GetFileName(image.FileName);
+                string filePath = Path.Combine(uploadsFolder, fileName);
+                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await image.CopyToAsync(fileStream);
+                }
+                product.ImagePath = "/images/" + fileName;
+            }
+
+            await _db.SaveChangesAsync();
+            return RedirectToAction("Products");
+        }
+
+        // Delete product (GET via link)
+        [HttpGet]
+        public IActionResult Delete(int id)
+        {
+            if (HttpContext.Session.GetString("Role") != "Admin")
+                return RedirectToAction("Login", "Account");
+
+            var product = _db.Products.FirstOrDefault(p => p.Id == id);
+            if (product != null)
+            {
+                _db.Products.Remove(product);
+                _db.SaveChanges();
+            }
+            return RedirectToAction("Products");
+        }
+
         // Reports
         [HttpGet]
         public IActionResult Reports(DateTime? date)
