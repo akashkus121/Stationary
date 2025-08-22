@@ -49,6 +49,10 @@ namespace Stationary.Controllers
             if (HttpContext.Session.GetString("Role") != "Admin")
                 return RedirectToAction("Login", "Account");
 
+            // Check SP/TVP availability for banner
+            ViewBag.InventorySpOk = CheckInventorySpAvailability(out string spInfo);
+            ViewBag.InventorySpMsg = spInfo;
+
             return View(_db.Products.ToList());
         }
 
@@ -305,6 +309,10 @@ namespace Stationary.Controllers
         {
             if (HttpContext.Session.GetString("Role") != "Admin")
                 return RedirectToAction("Login", "Account");
+
+            ViewBag.InventorySpOk = CheckInventorySpAvailability(out string spInfo);
+            ViewBag.InventorySpMsg = spInfo;
+
             return View(Enumerable.Empty<OcrInventoryItem>());
         }
 
@@ -361,6 +369,9 @@ namespace Stationary.Controllers
                 ? $"Processed: {items.Count} lines. Created {created}, Updated {updated}."
                 : message + (items != null ? $" | Parsed {items.Count} lines." : string.Empty);
 
+            ViewBag.InventorySpOk = CheckInventorySpAvailability(out string spInfo2);
+            ViewBag.InventorySpMsg = spInfo2;
+
             return View(items ?? Enumerable.Empty<OcrInventoryItem>());
         }
 
@@ -396,6 +407,34 @@ namespace Stationary.Controllers
             catch (Exception ex)
             {
                 info = "SP fallback: " + ex.Message;
+                return false;
+            }
+        }
+
+        private bool CheckInventorySpAvailability(out string info)
+        {
+            info = string.Empty;
+            try
+            {
+                using var conn = new SqlConnection(_db.Database.GetConnectionString());
+                using var cmd = new SqlCommand(@"SELECT CONVERT(int, CASE WHEN EXISTS (SELECT 1 FROM sys.types WHERE name='InventoryItemTv' AND schema_id = SCHEMA_ID('dbo')) THEN 1 ELSE 0 END) AS HasType,
+SELECT CONVERT(int, CASE WHEN EXISTS (SELECT 1 FROM sys.procedures WHERE name='usp_UpsertInventoryItems' AND schema_id = SCHEMA_ID('dbo')) THEN 1 ELSE 0 END) AS HasProc;", conn);
+                conn.Open();
+                using var reader = cmd.ExecuteReader();
+                int hasType = 0, hasProc = 0;
+                if (reader.Read())
+                {
+                    hasType = reader.GetInt32(0);
+                    if (reader.NextResult() && reader.Read())
+                        hasProc = reader.GetInt32(0);
+                }
+                bool ok = (hasType == 1 && hasProc == 1);
+                info = ok ? "Inventory import SP/TVP available." : "Inventory import SP/TVP missing. Please run provided SQL scripts.";
+                return ok;
+            }
+            catch (Exception ex)
+            {
+                info = "Inventory SP check failed: " + ex.Message;
                 return false;
             }
         }
