@@ -14,6 +14,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using System.Data;
+using Stationary.Services;
 
 namespace Stationary.Controllers
 {
@@ -298,5 +299,61 @@ namespace Stationary.Controllers
             };
         }
 
+        [HttpGet]
+        public IActionResult InventoryUpload()
+        {
+            if (HttpContext.Session.GetString("Role") != "Admin")
+                return RedirectToAction("Login", "Account");
+            return View(Enumerable.Empty<OcrInventoryItem>());
+        }
+
+        [HttpPost]
+        public IActionResult InventoryUpload(IFormFile file, int? defaultThreshold)
+        {
+            if (HttpContext.Session.GetString("Role") != "Admin")
+                return RedirectToAction("Login", "Account");
+
+            var service = new OcrInventoryService();
+            string? tessPath = Environment.GetEnvironmentVariable("TESSDATA_PREFIX");
+            var items = service.ExtractItems(file, tessPath, out string message);
+
+            int created = 0, updated = 0;
+            int threshold = defaultThreshold.HasValue ? Math.Max(0, defaultThreshold.Value) : 5;
+
+            if (items != null && items.Any())
+            {
+                foreach (var it in items)
+                {
+                    var existing = _db.Products.FirstOrDefault(p => p.Name.ToLower() == it.ProductName.ToLower());
+                    if (existing == null)
+                    {
+                        _db.Products.Add(new Product
+                        {
+                            Name = it.ProductName,
+                            Category = "Uncategorized",
+                            Price = 0,
+                            ImagePath = string.Empty,
+                            StockQuantity = it.Quantity,
+                            LowStockThreshold = threshold
+                        });
+                        created++;
+                    }
+                    else
+                    {
+                        existing.StockQuantity += it.Quantity;
+                        if (existing.LowStockThreshold <= 0)
+                            existing.LowStockThreshold = threshold;
+                        updated++;
+                    }
+                }
+                _db.SaveChanges();
+            }
+
+            TempData["ImportMessage"] = string.IsNullOrEmpty(message)
+                ? $"Processed: {items.Count} lines. Created {created}, Updated {updated}."
+                : message + (items != null ? $" | Parsed {items.Count} lines." : string.Empty);
+
+            return View(items ?? Enumerable.Empty<OcrInventoryItem>());
+        }
     }
 }
