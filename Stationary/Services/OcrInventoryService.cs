@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
-using UglyToad.PdfPig;
-using UglyToad.PdfPig.Content;
 using Tesseract;
 
 namespace Stationary.Services
@@ -35,14 +33,8 @@ namespace Stationary.Services
 			{
 				if (ext == ".pdf")
 				{
-					using var ms = new MemoryStream();
-					file.CopyTo(ms);
-					ms.Position = 0;
-					using var pdf = PdfDocument.Open(ms);
-					foreach (var page in pdf.GetPages())
-					{
-						text += page.Text + "\n";
-					}
+					message = "PDF OCR is not enabled. Please upload an image (PNG/JPG) of the bill.";
+					return items;
 				}
 				else if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tif" || ext == ".tiff")
 				{
@@ -61,7 +53,7 @@ namespace Stationary.Services
 				}
 				else
 				{
-					message = "Unsupported file type. Upload PDF or image.";
+					message = "Unsupported file type. Upload PNG/JPG image.";
 					return items;
 				}
 
