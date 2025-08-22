@@ -417,16 +417,16 @@ namespace Stationary.Controllers
             try
             {
                 using var conn = new SqlConnection(_db.Database.GetConnectionString());
-                using var cmd = new SqlCommand(@"SELECT CONVERT(int, CASE WHEN EXISTS (SELECT 1 FROM sys.types WHERE name='InventoryItemTv' AND schema_id = SCHEMA_ID('dbo')) THEN 1 ELSE 0 END) AS HasType,
-SELECT CONVERT(int, CASE WHEN EXISTS (SELECT 1 FROM sys.procedures WHERE name='usp_UpsertInventoryItems' AND schema_id = SCHEMA_ID('dbo')) THEN 1 ELSE 0 END) AS HasProc;", conn);
+                using var cmd = new SqlCommand(@"SELECT
+    CONVERT(int, CASE WHEN EXISTS (SELECT 1 FROM sys.types WHERE name='InventoryItemTv' AND schema_id = SCHEMA_ID('dbo')) THEN 1 ELSE 0 END) AS HasType,
+    CONVERT(int, CASE WHEN EXISTS (SELECT 1 FROM sys.procedures WHERE name='usp_UpsertInventoryItems' AND schema_id = SCHEMA_ID('dbo')) THEN 1 ELSE 0 END) AS HasProc;", conn);
                 conn.Open();
                 using var reader = cmd.ExecuteReader();
                 int hasType = 0, hasProc = 0;
                 if (reader.Read())
                 {
                     hasType = reader.GetInt32(0);
-                    if (reader.NextResult() && reader.Read())
-                        hasProc = reader.GetInt32(0);
+                    hasProc = reader.GetInt32(1);
                 }
                 bool ok = (hasType == 1 && hasProc == 1);
                 info = ok ? "Inventory import SP/TVP available." : "Inventory import SP/TVP missing. Please run provided SQL scripts.";
