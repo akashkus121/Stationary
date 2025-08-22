@@ -21,7 +21,6 @@ namespace Stationary.Controllers
 
 
 
-
         // Product List with Search
         // Product List with Search
         public IActionResult Index(string search, string category)
@@ -194,6 +193,25 @@ namespace Stationary.Controllers
 
             if (!cart.Any())
                 return RedirectToAction("Cart");
+
+            // Stock validation
+            foreach (var item in cart)
+            {
+                if (item.Product == null)
+                    return RedirectToAction("Cart");
+
+                if (item.Product.StockQuantity < item.Quantity)
+                {
+                    TempData["Error"] = $"Insufficient stock for {item.Product.Name}. Available: {item.Product.StockQuantity}";
+                    return RedirectToAction("Cart");
+                }
+            }
+
+            // Deduct stock
+            foreach (var item in cart)
+            {
+                item.Product.StockQuantity -= item.Quantity;
+            }
 
             var total = cart.Sum(c => c.Product.Price * c.Quantity);
 
