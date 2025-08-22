@@ -143,11 +143,25 @@ namespace Stationary.Controllers
                 return RedirectToAction("Login", "Account");
 
             var product = _db.Products.FirstOrDefault(p => p.Id == id);
-            if (product != null)
+            if (product == null)
+                return RedirectToAction("Products");
+
+            // Remove any cart items referencing this product
+            var carts = _db.Carts.Where(c => c.ProductId == id).ToList();
+            if (carts.Any())
+                _db.Carts.RemoveRange(carts);
+
+            // Block delete if product has order history
+            bool usedInOrders = _db.OrderItems.Any(oi => oi.ProductId == id);
+            if (usedInOrders)
             {
-                _db.Products.Remove(product);
-                _db.SaveChanges();
+                TempData["Error"] = "Cannot delete product because it exists in past orders.";
+                return RedirectToAction("Products");
             }
+
+            _db.Products.Remove(product);
+            _db.SaveChanges();
+            TempData["Success"] = "Product deleted successfully.";
             return RedirectToAction("Products");
         }
 
