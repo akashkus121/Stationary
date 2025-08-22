@@ -15,6 +15,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using System.Data;
 using Stationary.Services;
+using Microsoft.Data.SqlClient;
 
 namespace Stationary.Controllers
 {
@@ -322,31 +323,38 @@ namespace Stationary.Controllers
 
             if (items != null && items.Any())
             {
-                foreach (var it in items)
+                // Try TVP stored procedure first
+                if (!TryUpsertInventoryWithStoredProcedure(items, threshold, ref created, ref updated, out string spMessage))
                 {
-                    var existing = _db.Products.FirstOrDefault(p => p.Name.ToLower() == it.ProductName.ToLower());
-                    if (existing == null)
+                    // Fallback to EF
+                    foreach (var it in items)
                     {
-                        _db.Products.Add(new Product
+                        var existing = _db.Products.FirstOrDefault(p => p.Name.ToLower() == it.ProductName.ToLower());
+                        if (existing == null)
                         {
-                            Name = it.ProductName,
-                            Category = "Uncategorized",
-                            Price = 0,
-                            ImagePath = string.Empty,
-                            StockQuantity = it.Quantity,
-                            LowStockThreshold = threshold
-                        });
-                        created++;
+                            _db.Products.Add(new Product
+                            {
+                                Name = it.ProductName,
+                                Category = "Uncategorized",
+                                Price = 0,
+                                ImagePath = string.Empty,
+                                StockQuantity = it.Quantity,
+                                LowStockThreshold = threshold
+                            });
+                            created++;
+                        }
+                        else
+                        {
+                            existing.StockQuantity += it.Quantity;
+                            if (existing.LowStockThreshold <= 0)
+                                existing.LowStockThreshold = threshold;
+                            updated++;
+                        }
                     }
-                    else
-                    {
-                        existing.StockQuantity += it.Quantity;
-                        if (existing.LowStockThreshold <= 0)
-                            existing.LowStockThreshold = threshold;
-                        updated++;
-                    }
+                    _db.SaveChanges();
+                    if (!string.IsNullOrEmpty(spMessage))
+                        message = string.IsNullOrEmpty(message) ? spMessage : message + " | " + spMessage;
                 }
-                _db.SaveChanges();
             }
 
             TempData["ImportMessage"] = string.IsNullOrEmpty(message)
@@ -354,6 +362,42 @@ namespace Stationary.Controllers
                 : message + (items != null ? $" | Parsed {items.Count} lines." : string.Empty);
 
             return View(items ?? Enumerable.Empty<OcrInventoryItem>());
+        }
+
+        private bool TryUpsertInventoryWithStoredProcedure(List<OcrInventoryItem> items, int threshold, ref int created, ref int updated, out string info)
+        {
+            info = string.Empty;
+            try
+            {
+                using var conn = new SqlConnection(_db.Database.GetConnectionString());
+                using var cmd = new SqlCommand("dbo.usp_UpsertInventoryItems", conn) { CommandType = CommandType.StoredProcedure };
+
+                var tvp = new DataTable();
+                tvp.Columns.Add("ProductName", typeof(string));
+                tvp.Columns.Add("Quantity", typeof(int));
+                tvp.Columns.Add("LowStockThreshold", typeof(int));
+
+                foreach (var it in items)
+                {
+                    tvp.Rows.Add(it.ProductName, it.Quantity, threshold);
+                }
+
+                var param = cmd.Parameters.AddWithValue("@Items", tvp);
+                param.SqlDbType = SqlDbType.Structured;
+                param.TypeName = "dbo.InventoryItemTv";
+
+                conn.Open();
+                cmd.ExecuteNonQuery();
+
+                // Post-estimate: created vs updated requires a lookup. Keep simple: set info text.
+                info = "Stored procedure executed.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                info = "SP fallback: " + ex.Message;
+                return false;
+            }
         }
     }
 }
