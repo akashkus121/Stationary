@@ -90,28 +90,28 @@ $(document).ready(function () {
         observer.observe(card);
     });
 
-    // Quantity controls
-    $('.increase-btn').click(function () {
+    // Quantity controls (event delegation for robustness)
+    $(document).on('click', '.increase-btn', function () {
         const id = $(this).data('id');
         const qtySpan = $(`#qty-${id}`);
-        let qty = parseInt(qtySpan.text());
+        let qty = parseInt(qtySpan.text(), 10) || 0;
         qtySpan.text(qty + 1);
     });
 
-    $('.decrease-btn').click(function () {
+    $(document).on('click', '.decrease-btn', function () {
         const id = $(this).data('id');
         const qtySpan = $(`#qty-${id}`);
-        let qty = parseInt(qtySpan.text());
+        let qty = parseInt(qtySpan.text(), 10) || 0;
         if (qty > 1) {
             qtySpan.text(qty - 1);
         }
     });
 
     // Add to Cart with AJAX
-    $('.add-to-cart-btn').click(function () {
+    $(document).on('click', '.add-to-cart-btn', function () {
         const button = $(this);
         const id = button.data('id');
-        const qty = parseInt($(`#qty-${id}`).text());  // ✅ get updated quantity from span
+        const qty = parseInt($(`#qty-${id}`).text(), 10) || 1;  // ✅ get updated quantity from span
         const originalText = button.html();
 
         button.prop('disabled', true).html('<div class="loading-spinner"></div>');
@@ -134,14 +134,13 @@ $(document).ready(function () {
                         button.html(originalText).prop('disabled', false);
                     }, 1500);
                 } else {
-                    alert(response.message);
+                    alert(response.message || 'Please login first.');
                     if (response.redirect) {
                         window.location.href = '/User/Login';
                     }
                     button.html(originalText).prop('disabled', false);
                 }
-            }
-,
+            },
             error: function () {
                 alert('Something went wrong.');
                 button.html(originalText).prop('disabled', false);
@@ -153,11 +152,12 @@ $(document).ready(function () {
    
         // Function to update cart count
     function updateCartCount() {
+        var url = (typeof getCartCountUrl !== 'undefined' && getCartCountUrl) ? getCartCountUrl : '/User/GetCartCount';
         $.ajax({
-            url: '@Url.Action("GetCartCount", "User")',
+            url: url,
             type: 'GET',
             success: function (response) {
-                $('#cart-count').text(response.count || 0);
+                $('#cart-count').text((response && response.count) ? response.count : 0);
             },
             error: function () {
                 console.error("Failed to fetch cart count");

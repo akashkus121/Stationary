@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Stationary.Data;
 using Stationary.Models;
@@ -87,8 +87,8 @@ namespace Stationary.Controllers
 
             _db.SaveChanges();
 
-            // ✅ count distinct products
-            var cartCount = _db.Carts.Where(c => c.UserId == user.Id).Count();
+            // ✅ count total quantity across all items
+            var cartCount = _db.Carts.Where(c => c.UserId == user.Id).Sum(c => c.Quantity);
 
             return Json(new { success = true, count = cartCount });
         }
