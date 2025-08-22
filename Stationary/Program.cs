@@ -35,18 +35,22 @@ app.UseRouting();
 // Prevent browser from caching dynamic pages (mitigates back button showing protected pages)
 app.Use(async (context, next) =>
 {
-    await next();
-
-    var path = context.Request.Path.Value?.ToLower();
-    if (!string.IsNullOrEmpty(path) &&
-        (path.StartsWith("/lib") || path.StartsWith("/css") || path.StartsWith("/js") || path.StartsWith("/images") || path.StartsWith("/favicon")))
+    context.Response.OnStarting(() =>
     {
-        return;
-    }
+        var path = context.Request.Path.Value?.ToLower();
+        if (!string.IsNullOrEmpty(path) &&
+            (path.StartsWith("/lib") || path.StartsWith("/css") || path.StartsWith("/js") || path.StartsWith("/images") || path.StartsWith("/favicon")))
+        {
+            return Task.CompletedTask;
+        }
 
-    context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-    context.Response.Headers["Pragma"] = "no-cache";
-    context.Response.Headers["Expires"] = "0";
+        context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+        context.Response.Headers["Pragma"] = "no-cache";
+        context.Response.Headers["Expires"] = "0";
+        return Task.CompletedTask;
+    });
+
+    await next();
 });
 
 // ✅ Session must come BEFORE Authorization
