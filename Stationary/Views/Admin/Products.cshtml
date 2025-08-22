@@ -1,4 +1,4 @@
-﻿@model IEnumerable<Stationary.Models.Product>
+@model IEnumerable<Stationary.Models.Product>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -19,6 +19,10 @@
             <a href="@Url.Action("Create", "Admin")" class="btn-primary">
                 <i class="fas fa-plus"></i>
                 Add New Product
+            </a>
+            <a href="@Url.Action("Reports", "Admin")" class="btn-primary" style="margin-left:8px; background: linear-gradient(135deg, #4e73df, #224abe);">
+                <i class="fas fa-chart-line"></i>
+                Reports
             </a>
         </div>
 
