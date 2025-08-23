@@ -3,6 +3,10 @@
 -- Purpose: Get real-time alerts for low stock and out-of-stock products
 -- =============================================
 
+IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[usp_GetLowStockAlerts]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[usp_GetLowStockAlerts]
+GO
+
 CREATE PROCEDURE [dbo].[usp_GetLowStockAlerts]
     @Threshold INT = NULL
 AS
