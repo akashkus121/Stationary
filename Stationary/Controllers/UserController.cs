@@ -8,10 +8,14 @@ namespace Stationary.Controllers
     public class UserController : Controller
     {
         private readonly ApplicationDbContext _db;
+        private readonly IProductService _productService;
+        private readonly ICartService _cartService;
 
-        public UserController(ApplicationDbContext db)  // ✅ DI injects options
+        public UserController(ApplicationDbContext db, IProductService productService, ICartService cartService)
         {
             _db = db;
+            _productService = productService;
+            _cartService = cartService;
         }
 
         public IActionResult Login()
@@ -22,40 +26,55 @@ namespace Stationary.Controllers
 
 
         // Product List with Search
-        public async Task<IActionResult> Index(string search, string category, int page = 1, int pageSize = 12)
+        public async Task<IActionResult> Index(string search, string category, string stockFilter = "available", int page = 1, int pageSize = 12)
         {
             if (HttpContext.Session.GetString("Role") != "User")
                 return RedirectToAction("Login", "User");
 
-            var products = _db.Products.AsQueryable();
+                            IEnumerable<Product> products;
 
-            // Apply search filter
-            if (!string.IsNullOrEmpty(search))
-                products = products.Where(p => p.Name.Contains(search));
+                // Apply stock filter
+                switch (stockFilter?.ToLower())
+                {
+                    case "all":
+                        products = await _productService.GetAvailableProductsAsync(true);
+                        break;
+                    case "outofstock":
+                        products = await _productService.GetOutOfStockProductsAsync();
+                        break;
+                    case "lowstock":
+                        products = await _productService.GetLowStockProductsAsync();
+                        break;
+                    default:
+                        products = await _productService.GetAvailableProductsAsync(false);
+                        break;
+                }
 
-            // Apply category filter
-            if (!string.IsNullOrEmpty(category))
-                products = products.Where(p => p.Category == category);
+                            // Apply search filter
+                if (!string.IsNullOrEmpty(search))
+                    products = products.Where(p => p.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
 
-            // Get total count for pagination
-            var totalProducts = await products.CountAsync();
-            var totalPages = (int)Math.Ceiling((double)totalProducts / pageSize);
+                // Apply category filter
+                if (!string.IsNullOrEmpty(category))
+                    products = products.Where(p => p.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
 
-            // Apply pagination
-            var pagedProducts = await products
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
+                // Get total count for pagination
+                var totalProducts = products.Count();
+                var totalPages = (int)Math.Ceiling((double)totalProducts / pageSize);
 
-            // Get unique categories for filter dropdown
-            var categories = await _db.Products
-                .Select(p => p.Category)
-                .Distinct()
-                .ToListAsync();
+                // Apply pagination
+                var pagedProducts = products
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
 
-            ViewBag.Search = search;
-            ViewBag.Category = category;
-            ViewBag.CurrentPage = page;
+                // Get unique categories for filter dropdown
+                var categories = await _productService.GetCategoriesAsync();
+
+                            ViewBag.Search = search;
+                ViewBag.Category = category;
+                ViewBag.StockFilter = stockFilter;
+                ViewBag.CurrentPage = page;
             ViewBag.TotalPages = totalPages;
             ViewBag.Categories = categories;
             ViewBag.PageSize = pageSize;
@@ -84,6 +103,10 @@ namespace Stationary.Controllers
                 // Validate quantity
                 if (quantity <= 0)
                     return Json(new { success = false, message = "Quantity must be greater than 0." });
+
+                // Check if product is out of stock
+                if (product.IsOutOfStock)
+                    return Json(new { success = false, message = "This product is currently out of stock." });
 
                 // Check stock availability
                 if (product.StockQuantity < quantity)

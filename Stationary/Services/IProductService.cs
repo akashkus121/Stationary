@@ -14,5 +14,11 @@ namespace Stationary.Services
         Task<IEnumerable<string>> GetCategoriesAsync();
         Task<bool> IsProductInStockAsync(int productId, int quantity);
         Task UpdateStockAsync(int productId, int quantity);
+        Task<IEnumerable<Product>> GetAvailableProductsAsync(bool includeOutOfStock = false);
+        Task<IEnumerable<Product>> GetOutOfStockProductsAsync();
+        Task<IEnumerable<Product>> GetLowStockProductsAsync();
+        Task<StockAlertSummary> GetStockAlertSummaryAsync();
+        Task ToggleProductVisibilityAsync(int productId, bool isVisible);
+        Task<IEnumerable<Product>> GetVisibleProductsAsync();
     }
 }
