@@ -22,130 +22,177 @@ namespace Stationary.Controllers
 
 
         // Product List with Search
-        // Product List with Search
-        public IActionResult Index(string search, string category)
+        public async Task<IActionResult> Index(string search, string category, int page = 1, int pageSize = 12)
         {
             if (HttpContext.Session.GetString("Role") != "User")
                 return RedirectToAction("Login", "User");
 
-            var username = HttpContext.Session.GetString("Username");
-            if (!string.IsNullOrEmpty(username))
-            {
-                var user = _db.Users.FirstOrDefault(u => u.Username == username);
-                if (user != null)
-                {
-                    // 🔴 Clear the cart from DB every time Index refreshes
-                    var userCart = _db.Carts.Where(c => c.UserId == user.Id).ToList();
-                    if (userCart.Any())
-                    {
-                        _db.Carts.RemoveRange(userCart);
-                        _db.SaveChanges();
-                    }
-                }
-            }
-
             var products = _db.Products.AsQueryable();
 
+            // Apply search filter
             if (!string.IsNullOrEmpty(search))
                 products = products.Where(p => p.Name.Contains(search));
 
+            // Apply category filter
             if (!string.IsNullOrEmpty(category))
                 products = products.Where(p => p.Category == category);
 
-            return View(products.ToList());
+            // Get total count for pagination
+            var totalProducts = await products.CountAsync();
+            var totalPages = (int)Math.Ceiling((double)totalProducts / pageSize);
+
+            // Apply pagination
+            var pagedProducts = await products
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            // Get unique categories for filter dropdown
+            var categories = await _db.Products
+                .Select(p => p.Category)
+                .Distinct()
+                .ToListAsync();
+
+            ViewBag.Search = search;
+            ViewBag.Category = category;
+            ViewBag.CurrentPage = page;
+            ViewBag.TotalPages = totalPages;
+            ViewBag.Categories = categories;
+            ViewBag.PageSize = pageSize;
+
+            return View(pagedProducts);
         }
 
 
         [HttpPost]
-        public JsonResult AddToCart(int id, int quantity = 1)
+        public async Task<JsonResult> AddToCart(int id, int quantity = 1)
         {
-            var username = HttpContext.Session.GetString("Username");
-            if (string.IsNullOrEmpty(username))
-                return Json(new { success = false, message = "Please login first.", redirect = true });
-
-            var user = _db.Users.FirstOrDefault(u => u.Username == username);
-            if (user == null)
-                return Json(new { success = false, message = "User not found.", redirect = true });
-
-            var product = _db.Products.FirstOrDefault(p => p.Id == id);
-            if (product == null)
-                return Json(new { success = false, message = "Product not found." });
-
-            var cartItem = _db.Carts.FirstOrDefault(c => c.ProductId == id && c.UserId == user.Id);
-
-            if (cartItem == null)
+            try
             {
-                // new product → add with selected quantity
-                _db.Carts.Add(new Cart { UserId = user.Id, ProductId = id, Quantity = quantity });
+                var username = HttpContext.Session.GetString("Username");
+                if (string.IsNullOrEmpty(username))
+                    return Json(new { success = false, message = "Please login first.", redirect = true });
+
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
+                if (user == null)
+                    return Json(new { success = false, message = "User not found.", redirect = true });
+
+                var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == id);
+                if (product == null)
+                    return Json(new { success = false, message = "Product not found." });
+
+                // Validate quantity
+                if (quantity <= 0)
+                    return Json(new { success = false, message = "Quantity must be greater than 0." });
+
+                // Check stock availability
+                if (product.StockQuantity < quantity)
+                    return Json(new { success = false, message = $"Only {product.StockQuantity} items available in stock." });
+
+                var cartItem = await _db.Carts.FirstOrDefaultAsync(c => c.ProductId == id && c.UserId == user.Id);
+
+                if (cartItem == null)
+                {
+                    // New product → add with selected quantity
+                    _db.Carts.Add(new Cart { UserId = user.Id, ProductId = id, Quantity = quantity });
+                }
+                else
+                {
+                    // Product already in cart → update quantity
+                    cartItem.Quantity = quantity;
+                }
+
+                await _db.SaveChangesAsync();
+
+                // Count total quantity across all items
+                var cartCount = await _db.Carts.Where(c => c.UserId == user.Id).SumAsync(c => c.Quantity);
+
+                return Json(new { success = true, count = cartCount, message = "Product added to cart successfully!" });
             }
-            else
+            catch (Exception ex)
             {
-                // product already in cart → just update quantity
-                cartItem.Quantity = quantity;
+                // Log the exception (in production, use proper logging)
+                return Json(new { success = false, message = "An error occurred while adding to cart." });
             }
-
-            _db.SaveChanges();
-
-            // ✅ count total quantity across all items
-            var cartCount = _db.Carts.Where(c => c.UserId == user.Id).Sum(c => c.Quantity);
-
-            return Json(new { success = true, count = cartCount });
         }
 
 
         [HttpGet]
-        public ActionResult Cart()
+        public async Task<IActionResult> Cart()
         {
-            var username = HttpContext.Session.GetString("Username");
-            if (string.IsNullOrEmpty(username))
-                return RedirectToAction("Login", "User");
-
-            var user = _db.Users.FirstOrDefault(u => u.Username == username);
-            if (user == null)
-                return RedirectToAction("Login", "User");
-
-            var cart = _db.Carts
-                .Include(c => c.Product)
-                .Where(c => c.UserId == user.Id)
-                .ToList();
-
-            return View(cart);
-        }
-
-
-        [HttpPost]
-        public JsonResult RemoveFromCart(int id)
-        {
-            var username = HttpContext.Session.GetString("Username");
-            if (string.IsNullOrEmpty(username))
-                return Json(new { success = false });
-
-            var user = _db.Users.FirstOrDefault(u => u.Username == username);
-            if (user == null)
-                return Json(new { success = false });
-
-            var cartItem = _db.Carts.FirstOrDefault(c => c.ProductId == id && c.UserId == user.Id);
-            if (cartItem != null)
+            try
             {
-                _db.Carts.Remove(cartItem);
-                _db.SaveChanges();
-            }
+                var username = HttpContext.Session.GetString("Username");
+                if (string.IsNullOrEmpty(username))
+                    return RedirectToAction("Login", "User");
 
-            return Json(new { success = true });
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
+                if (user == null)
+                    return RedirectToAction("Login", "User");
+
+                var cart = await _db.Carts
+                    .Include(c => c.Product)
+                    .Where(c => c.UserId == user.Id)
+                    .ToListAsync();
+
+                // Calculate total price
+                var totalPrice = cart.Sum(c => c.Product.Price * c.Quantity);
+                ViewBag.TotalPrice = totalPrice;
+                ViewBag.ItemCount = cart.Count;
+
+                return View(cart);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (in production, use proper logging)
+                return RedirectToAction("Error", "Home");
+            }
+        }
+
+
+        [HttpPost]
+        public async Task<JsonResult> RemoveFromCart(int id)
+        {
+            try
+            {
+                var username = HttpContext.Session.GetString("Username");
+                if (string.IsNullOrEmpty(username))
+                    return Json(new { success = false, message = "Please login first." });
+
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
+                if (user == null)
+                    return Json(new { success = false, message = "User not found." });
+
+                var cartItem = await _db.Carts.FirstOrDefaultAsync(c => c.ProductId == id && c.UserId == user.Id);
+                if (cartItem != null)
+                {
+                    _db.Carts.Remove(cartItem);
+                    await _db.SaveChangesAsync();
+                }
+
+                // Get updated cart count
+                var cartCount = await _db.Carts.Where(c => c.UserId == user.Id).SumAsync(c => c.Quantity);
+
+                return Json(new { success = true, count = cartCount, message = "Item removed from cart successfully!" });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "An error occurred while removing item from cart." });
+            }
         }
 
         [HttpPost]
-        public JsonResult UpdateCartQuantity(int id, int quantity)
+        public async Task<JsonResult> UpdateCartQuantity(int id, int quantity)
         {
             var username = HttpContext.Session.GetString("Username");
             if (string.IsNullOrEmpty(username))
                 return Json(new { success = false, message = "Please login first.", redirect = true });
 
-            var user = _db.Users.FirstOrDefault(u => u.Username == username);
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user == null)
                 return Json(new { success = false, message = "User not found.", redirect = true });
 
-            var cartItem = _db.Carts.FirstOrDefault(c => c.ProductId == id && c.UserId == user.Id);
+            var cartItem = await _db.Carts.FirstOrDefaultAsync(c => c.ProductId == id && c.UserId == user.Id);
             if (cartItem == null)
                 return Json(new { success = false, message = "Cart item not found." });
 
@@ -160,36 +207,45 @@ namespace Stationary.Controllers
         }
 
         [HttpGet]
-        public JsonResult GetCartCount()
+        public async Task<JsonResult> GetCartCount()
         {
-            var username = HttpContext.Session.GetString("Username");
-            if (string.IsNullOrEmpty(username))
-                return Json(new { count = 0 });
+            try
+            {
+                var username = HttpContext.Session.GetString("Username");
+                if (string.IsNullOrEmpty(username))
+                    return Json(new { count = 0 });
 
-            var user = _db.Users.FirstOrDefault(u => u.Username == username);
-            if (user == null)
-                return Json(new { count = 0 });
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
+                if (user == null)
+                    return Json(new { count = 0 });
 
-            var cartCount = _db.Carts.Where(c => c.UserId == user.Id).Sum(c => c.Quantity);
-            return Json(new { count = cartCount });
+                var cartCount = await _db.Carts.Where(c => c.UserId == user.Id).SumAsync(c => c.Quantity);
+                return Json(new { count = cartCount });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { count = 0 });
+            }
         }
 
 
         // Checkout
-        public ActionResult Checkout()
+        public async Task<IActionResult> Checkout()
         {
-            var username = HttpContext.Session.GetString("Username");
-            if (string.IsNullOrEmpty(username))
-                return RedirectToAction("Login", "User");
+            try
+            {
+                var username = HttpContext.Session.GetString("Username");
+                if (string.IsNullOrEmpty(username))
+                    return RedirectToAction("Login", "User");
 
-            var user = _db.Users.FirstOrDefault(u => u.Username == username);
-            if (user == null)
-                return RedirectToAction("Login", "User");
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
+                if (user == null)
+                    return RedirectToAction("Login", "User");
 
-            var cart = _db.Carts
-                          .Include(c => c.Product)
-                          .Where(c => c.UserId == user.Id)
-                          .ToList();
+                var cart = await _db.Carts
+                                  .Include(c => c.Product)
+                                  .Where(c => c.UserId == user.Id)
+                                  .ToListAsync();
 
             if (!cart.Any())
                 return RedirectToAction("Cart");
@@ -231,9 +287,16 @@ namespace Stationary.Controllers
 
             _db.Orders.Add(order);
             _db.Carts.RemoveRange(cart);
-            _db.SaveChanges();
+            await _db.SaveChangesAsync();
 
             return RedirectToAction("Index");
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (in production, use proper logging)
+                TempData["Error"] = "An error occurred during checkout. Please try again.";
+                return RedirectToAction("Cart");
+            }
         }
 
     }

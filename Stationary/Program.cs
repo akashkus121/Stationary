@@ -8,11 +8,22 @@ var builder = WebApplication.CreateBuilder(args);
 QuestPDF.Settings.License = LicenseType.Community;
 
 // Add services
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add<Microsoft.AspNetCore.Mvc.ValidateAntiForgeryTokenAttribute>();
+});
 
 // Register ApplicationDbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register custom services
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ICartService, CartService>();
+
+// Add health checks
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<ApplicationDbContext>();
 
 // Add session + cache
 builder.Services.AddDistributedMemoryCache();
@@ -35,6 +46,9 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+// Add global exception handling middleware
+app.UseMiddleware<Stationary.Middleware.ExceptionHandlingMiddleware>();
 
 // Prevent browser from caching dynamic pages (mitigates back button showing protected pages)
 app.Use(async (context, next) =>
@@ -65,5 +79,8 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
+// Map health checks
+app.MapHealthChecks("/health");
 
 app.Run();

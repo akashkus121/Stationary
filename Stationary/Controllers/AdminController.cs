@@ -44,16 +44,58 @@ namespace Stationary.Controllers
         }
 
 
-        public IActionResult Products()
+        public async Task<IActionResult> Products(string search, string category, int page = 1, int pageSize = 20)
         {
             if (HttpContext.Session.GetString("Role") != "Admin")
                 return RedirectToAction("Login", "Account");
 
-            // Check SP/TVP availability for banner
-            ViewBag.InventorySpOk = CheckInventorySpAvailability(out string spInfo);
-            ViewBag.InventorySpMsg = spInfo;
+            try
+            {
+                var products = _db.Products.AsQueryable();
 
-            return View(_db.Products.ToList());
+                // Apply search filter
+                if (!string.IsNullOrEmpty(search))
+                    products = products.Where(p => p.Name.Contains(search) || p.Category.Contains(search));
+
+                // Apply category filter
+                if (!string.IsNullOrEmpty(category))
+                    products = products.Where(p => p.Category == category);
+
+                // Get total count for pagination
+                var totalProducts = await products.CountAsync();
+                var totalPages = (int)Math.Ceiling((double)totalProducts / pageSize);
+
+                // Apply pagination
+                var pagedProducts = await products
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                // Get unique categories for filter dropdown
+                var categories = await _db.Products
+                    .Select(p => p.Category)
+                    .Distinct()
+                    .ToListAsync();
+
+                // Check SP/TVP availability for banner
+                ViewBag.InventorySpOk = CheckInventorySpAvailability(out string spInfo);
+                ViewBag.InventorySpMsg = spInfo;
+
+                ViewBag.Search = search;
+                ViewBag.Category = category;
+                ViewBag.CurrentPage = page;
+                ViewBag.TotalPages = totalPages;
+                ViewBag.Categories = categories;
+                ViewBag.PageSize = pageSize;
+
+                return View(pagedProducts);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (in production, use proper logging)
+                TempData["Error"] = "An error occurred while loading products.";
+                return View(new List<Product>());
+            }
         }
 
         [HttpPost]
@@ -62,41 +104,78 @@ namespace Stationary.Controllers
             if (HttpContext.Session.GetString("Role") != "Admin")
                 return RedirectToAction("Login", "Account");
 
-            if (image != null && image.Length > 0)
+            try
             {
-                string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images");
-                if (!Directory.Exists(uploadsFolder))
-                    Directory.CreateDirectory(uploadsFolder);
-
-                string fileName = Path.GetFileName(image.FileName);
-                string filePath = Path.Combine(uploadsFolder, fileName);
-
-                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                // Validate input
+                if (string.IsNullOrWhiteSpace(product.Name) || product.Price <= 0 || product.StockQuantity < 0)
                 {
-                    await image.CopyToAsync(fileStream);
+                    TempData["Error"] = "Please provide valid product information.";
+                    return View(product);
                 }
 
-                product.ImagePath = "/images/" + fileName;
+                if (image != null && image.Length > 0)
+                {
+                    // Validate image
+                    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
+                    var fileExtension = Path.GetExtension(image.FileName).ToLowerInvariant();
+                    
+                    if (!allowedExtensions.Contains(fileExtension))
+                    {
+                        TempData["Error"] = "Please upload a valid image file (JPG, PNG, GIF).";
+                        return View(product);
+                    }
+
+                    string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images");
+                    if (!Directory.Exists(uploadsFolder))
+                        Directory.CreateDirectory(uploadsFolder);
+
+                    string fileName = Guid.NewGuid().ToString() + fileExtension; // Use GUID to prevent conflicts
+                    string filePath = Path.Combine(uploadsFolder, fileName);
+
+                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await image.CopyToAsync(fileStream);
+                    }
+
+                    product.ImagePath = "/images/" + fileName;
+                }
+
+                _db.Products.Add(product);
+                await _db.SaveChangesAsync();
+
+                TempData["Success"] = "Product created successfully!";
+                return RedirectToAction("Products");
             }
-
-            _db.Products.Add(product);
-            await _db.SaveChangesAsync();
-
-            return RedirectToAction("Products");
+            catch (Exception ex)
+            {
+                TempData["Error"] = "An error occurred while creating the product.";
+                return View(product);
+            }
         }
 
         // Edit product (GET)
         [HttpGet]
-        public IActionResult Edit(int id)
+        public async Task<IActionResult> Edit(int id)
         {
             if (HttpContext.Session.GetString("Role") != "Admin")
                 return RedirectToAction("Login", "Account");
 
-            var product = _db.Products.FirstOrDefault(p => p.Id == id);
-            if (product == null)
-                return RedirectToAction("Products");
+            try
+            {
+                var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == id);
+                if (product == null)
+                {
+                    TempData["Error"] = "Product not found.";
+                    return RedirectToAction("Products");
+                }
 
-            return View(product);
+                return View(product);
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "An error occurred while loading the product.";
+                return RedirectToAction("Products");
+            }
         }
 
         // Edit product (POST)
@@ -106,33 +185,63 @@ namespace Stationary.Controllers
             if (HttpContext.Session.GetString("Role") != "Admin")
                 return RedirectToAction("Login", "Account");
 
-            var product = _db.Products.FirstOrDefault(p => p.Id == model.Id);
-            if (product == null)
-                return RedirectToAction("Products");
-
-            product.Name = model.Name;
-            product.Category = model.Category;
-            product.Price = model.Price;
-            product.StockQuantity = model.StockQuantity;
-            product.LowStockThreshold = model.LowStockThreshold;
-
-            if (image != null && image.Length > 0)
+            try
             {
-                string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images");
-                if (!Directory.Exists(uploadsFolder))
-                    Directory.CreateDirectory(uploadsFolder);
-
-                string fileName = Path.GetFileName(image.FileName);
-                string filePath = Path.Combine(uploadsFolder, fileName);
-                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == model.Id);
+                if (product == null)
                 {
-                    await image.CopyToAsync(fileStream);
+                    TempData["Error"] = "Product not found.";
+                    return RedirectToAction("Products");
                 }
-                product.ImagePath = "/images/" + fileName;
-            }
 
-            await _db.SaveChangesAsync();
-            return RedirectToAction("Products");
+                // Validate input
+                if (string.IsNullOrWhiteSpace(model.Name) || model.Price <= 0 || model.StockQuantity < 0)
+                {
+                    TempData["Error"] = "Please provide valid product information.";
+                    return View(model);
+                }
+
+                product.Name = model.Name;
+                product.Category = model.Category;
+                product.Price = model.Price;
+                product.StockQuantity = model.StockQuantity;
+                product.LowStockThreshold = model.LowStockThreshold;
+
+                if (image != null && image.Length > 0)
+                {
+                    // Validate image
+                    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
+                    var fileExtension = Path.GetExtension(image.FileName).ToLowerInvariant();
+                    
+                    if (!allowedExtensions.Contains(fileExtension))
+                    {
+                        TempData["Error"] = "Please upload a valid image file (JPG, PNG, GIF).";
+                        return View(model);
+                    }
+
+                    string uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images");
+                    if (!Directory.Exists(uploadsFolder))
+                        Directory.CreateDirectory(uploadsFolder);
+
+                    string fileName = Guid.NewGuid().ToString() + fileExtension; // Use GUID to prevent conflicts
+                    string filePath = Path.Combine(uploadsFolder, fileName);
+                    
+                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await image.CopyToAsync(fileStream);
+                    }
+                    product.ImagePath = "/images/" + fileName;
+                }
+
+                await _db.SaveChangesAsync();
+                TempData["Success"] = "Product updated successfully!";
+                return RedirectToAction("Products");
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "An error occurred while updating the product.";
+                return View(model);
+            }
         }
 
         // Delete product (GET via link)
