@@ -9,6 +9,17 @@ A modern ASP.NET Core MVC application for managing and selling stationary produc
 - **Improved Error Handling**: Added comprehensive try-catch blocks throughout the application
 - **Input Validation**: Added proper validation for all user inputs
 
+<<<<<<< HEAD
+=======
+### ✅ **Stock Management & Out-of-Stock Handling**
+- **Smart Stock Filtering**: Users can filter products by stock status (Available, Low Stock, Out of Stock)
+- **Out-of-Stock Product Management**: Products with zero stock are automatically handled
+- **Low Stock Alerts**: Configurable thresholds for low stock warnings
+- **Product Visibility Control**: Admins can hide/show products based on stock levels
+- **Stock Alert Dashboard**: Comprehensive overview of all stock levels and alerts
+- **Bulk Stock Updates**: Admins can update multiple products' stock levels at once
+
+>>>>>>> cursor/suggest-application-effectiveness-improvements-d6f5
 ### ✅ **Performance & Scalability**
 - **Async Operations**: Converted all database operations to async/await pattern
 - **Pagination**: Implemented pagination for product listings (12 items per page for users, 20 for admins)

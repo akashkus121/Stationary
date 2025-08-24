@@ -23,11 +23,13 @@ namespace Stationary.Controllers
     {
         private readonly ApplicationDbContext _db;
         private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly IProductService _productService;
 
-        public AdminController(ApplicationDbContext db, IWebHostEnvironment webHostEnvironment)
+        public AdminController(ApplicationDbContext db, IWebHostEnvironment webHostEnvironment, IProductService productService)
         {
             _db = db;
             _webHostEnvironment = webHostEnvironment;
+            _productService = productService;
         }
 
         // GET: Login
@@ -95,6 +97,90 @@ namespace Stationary.Controllers
                 // Log the exception (in production, use proper logging)
                 TempData["Error"] = "An error occurred while loading products.";
                 return View(new List<Product>());
+            }
+        }
+
+        // Stock Management
+        public async Task<IActionResult> StockManagement()
+        {
+            if (HttpContext.Session.GetString("Role") != "Admin")
+                return RedirectToAction("Login", "Account");
+
+            try
+            {
+                var outOfStockProducts = await _productService.GetOutOfStockProductsAsync();
+                var lowStockProducts = await _productService.GetLowStockProductsAsync();
+                var allProducts = await _productService.GetAvailableProductsAsync(true);
+
+                ViewBag.OutOfStockCount = outOfStockProducts.Count();
+                ViewBag.LowStockCount = lowStockProducts.Count();
+                ViewBag.TotalProducts = allProducts.Count();
+
+                return View(new StockManagementViewModel
+                {
+                    OutOfStockProducts = outOfStockProducts.ToList(),
+                    LowStockProducts = lowStockProducts.ToList(),
+                    AllProducts = allProducts.ToList()
+                });
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "An error occurred while loading stock information.";
+                return View(new StockManagementViewModel());
+            }
+        }
+
+        // Stock Alerts Dashboard
+        public async Task<IActionResult> StockAlerts()
+        {
+            if (HttpContext.Session.GetString("Role") != "Admin")
+                return RedirectToAction("Login", "Account");
+
+            try
+            {
+                var stockSummary = await _productService.GetStockAlertSummaryAsync();
+                var outOfStockProducts = await _productService.GetOutOfStockProductsAsync();
+                var lowStockProducts = await _productService.GetLowStockProductsAsync();
+
+                ViewBag.StockSummary = stockSummary;
+                ViewBag.OutOfStockProducts = outOfStockProducts.ToList();
+                ViewBag.LowStockProducts = lowStockProducts.ToList();
+
+                return View();
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "An error occurred while loading stock alerts.";
+                return View();
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> BulkUpdateStock(List<StockUpdateModel> stockUpdates)
+        {
+            if (HttpContext.Session.GetString("Role") != "Admin")
+                return RedirectToAction("Login", "Account");
+
+            try
+            {
+                foreach (var update in stockUpdates)
+                {
+                    var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == update.ProductId);
+                    if (product != null)
+                    {
+                        product.StockQuantity = update.NewStockQuantity;
+                        product.LowStockThreshold = update.NewLowStockThreshold;
+                    }
+                }
+
+                await _db.SaveChangesAsync();
+                TempData["Success"] = "Stock updated successfully for all products!";
+                return RedirectToAction("StockManagement");
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "An error occurred while updating stock.";
+                return RedirectToAction("StockManagement");
             }
         }
 

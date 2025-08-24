@@ -26,5 +26,31 @@ namespace Stationary.Models
 
         [Range(0, int.MaxValue, ErrorMessage = "Low stock threshold cannot be negative")]
         public int LowStockThreshold { get; set; }
+
+        // Computed property to check if product is out of stock
+        public bool IsOutOfStock => StockQuantity <= 0;
+
+        // Computed property to check if product is low in stock
+        public bool IsLowStock => StockQuantity > 0 && StockQuantity <= LowStockThreshold;
+
+        // Computed property to get stock status
+        public string StockStatus
+        {
+            get
+            {
+                if (IsOutOfStock) return "Out of Stock";
+                if (IsLowStock) return $"Low Stock ({StockQuantity} left)";
+                return $"In Stock ({StockQuantity} available)";
+            }
+        }
+
+        // Property to control product visibility
+        public bool IsVisible { get; set; } = true;
+
+        // Computed property for effective visibility (considering stock and visibility settings)
+        public bool IsEffectivelyVisible => IsVisible && (!IsOutOfStock || !AutoHideOutOfStock);
+        
+        // Static property for global settings (could be moved to configuration)
+        public static bool AutoHideOutOfStock { get; set; } = true;
     }
 }

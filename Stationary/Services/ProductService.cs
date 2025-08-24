@@ -97,5 +97,60 @@ namespace Stationary.Services
                 await _db.SaveChangesAsync();
             }
         }
+
+        public async Task<IEnumerable<Product>> GetAvailableProductsAsync(bool includeOutOfStock = false)
+        {
+            if (includeOutOfStock)
+                return await _db.Products.Where(p => p.IsVisible).ToListAsync();
+            
+            return await _db.Products
+                .Where(p => p.StockQuantity > 0 && p.IsVisible)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Product>> GetOutOfStockProductsAsync()
+        {
+            return await _db.Products
+                .Where(p => p.StockQuantity <= 0)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Product>> GetLowStockProductsAsync()
+        {
+            return await _db.Products
+                .Where(p => p.StockQuantity > 0 && p.StockQuantity <= p.LowStockThreshold)
+                .ToListAsync();
+        }
+
+        public async Task<StockAlertSummary> GetStockAlertSummaryAsync()
+        {
+            var products = await _db.Products.ToListAsync();
+            
+            return new StockAlertSummary
+            {
+                TotalProducts = products.Count,
+                InStockProducts = products.Count(p => p.StockQuantity > p.LowStockThreshold),
+                LowStockProducts = products.Count(p => p.StockQuantity > 0 && p.StockQuantity <= p.LowStockThreshold),
+                OutOfStockProducts = products.Count(p => p.StockQuantity <= 0),
+                CriticalStockProducts = products.Count(p => p.StockQuantity == 1)
+            };
+        }
+
+        public async Task ToggleProductVisibilityAsync(int productId, bool isVisible)
+        {
+            var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == productId);
+            if (product != null)
+            {
+                product.IsVisible = isVisible;
+                await _db.SaveChangesAsync();
+            }
+        }
+
+        public async Task<IEnumerable<Product>> GetVisibleProductsAsync()
+        {
+            return await _db.Products
+                .Where(p => p.IsEffectivelyVisible)
+                .ToListAsync();
+        }
     }
 }
