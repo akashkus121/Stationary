@@ -52,5 +52,24 @@ namespace Stationary.Models
         
         // Static property for global settings (could be moved to configuration)
         public static bool AutoHideOutOfStock { get; set; } = true;
+
+        // Helper method to ensure no null values
+        public void EnsureValidValues()
+        {
+            if (string.IsNullOrEmpty(Name))
+                Name = "Unnamed Product";
+            
+            if (string.IsNullOrEmpty(Category))
+                Category = "Uncategorized";
+            
+            if (Price <= 0)
+                Price = 0.01m;
+            
+            if (StockQuantity < 0)
+                StockQuantity = 0;
+            
+            if (LowStockThreshold < 0)
+                LowStockThreshold = 5;
+        }
     }
 }

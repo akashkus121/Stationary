@@ -28,6 +28,12 @@
                 <i class="fas fa-file-import"></i>
                 Import Inventory
             </a>
+            <form method="post" action="@Url.Action("CleanupDatabase", "Admin")" style="display: inline; margin-left: 8px;">
+                <button type="submit" class="btn-primary" style="background: linear-gradient(135deg, #e74a3b, #be2617);" onclick="return confirm('This will fix any null values in the database. Continue?')">
+                    <i class="fas fa-database"></i>
+                    Fix Database Issues
+                </button>
+            </form>
         </div>
 
         <div class="table-container">

@@ -32,6 +32,88 @@ namespace Stationary.Controllers
             _productService = productService;
         }
 
+        // Database Cleanup - Fix null values
+        [HttpPost]
+        public async Task<IActionResult> CleanupDatabase()
+        {
+            if (HttpContext.Session.GetString("Role") != "Admin")
+                return RedirectToAction("Login", "Account");
+
+            try
+            {
+                // Fix null Category values
+                var nullCategoryProducts = await _db.Products
+                    .Where(p => p.Category == null || p.Category == "")
+                    .ToListAsync();
+
+                foreach (var product in nullCategoryProducts)
+                {
+                    product.Category = "Uncategorized";
+                }
+
+                // Fix null Name values
+                var nullNameProducts = await _db.Products
+                    .Where(p => p.Name == null || p.Name == "")
+                    .ToListAsync();
+
+                foreach (var product in nullNameProducts)
+                {
+                    product.Name = "Unnamed Product";
+                }
+
+                // Fix null Price values
+                var nullPriceProducts = await _db.Products
+                    .Where(p => p.Price == 0)
+                    .ToListAsync();
+
+                foreach (var product in nullPriceProducts)
+                {
+                    product.Price = 0.01m;
+                }
+
+                // Fix null StockQuantity values
+                var nullStockProducts = await _db.Products
+                    .Where(p => p.StockQuantity < 0)
+                    .ToListAsync();
+
+                foreach (var product in nullStockProducts)
+                {
+                    product.StockQuantity = 0;
+                }
+
+                // Fix null LowStockThreshold values
+                var nullThresholdProducts = await _db.Products
+                    .Where(p => p.LowStockThreshold < 0)
+                    .ToListAsync();
+
+                foreach (var product in nullThresholdProducts)
+                {
+                    product.LowStockThreshold = 5;
+                }
+
+                // Set default visibility
+                var nullVisibilityProducts = await _db.Products
+                    .Where(p => !p.IsVisible)
+                    .ToListAsync();
+
+                foreach (var product in nullVisibilityProducts)
+                {
+                    product.IsVisible = true;
+                }
+
+                await _db.SaveChangesAsync();
+
+                TempData["Success"] = $"Database cleanup completed. Fixed {nullCategoryProducts.Count} null categories, {nullNameProducts.Count} null names, {nullPriceProducts.Count} null prices, {nullStockProducts.Count} null stock quantities, and {nullThresholdProducts.Count} null thresholds.";
+                
+                return RedirectToAction("Products");
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Error during database cleanup: {ex.Message}";
+                return RedirectToAction("Products");
+            }
+        }
+
         // GET: Login
         public IActionResult Login()
         {
@@ -53,15 +135,28 @@ namespace Stationary.Controllers
 
             try
             {
+                // First, check if there are any products with null values and log them
+                var nullCategoryProducts = await _db.Products
+                    .Where(p => p.Category == null || p.Category == "")
+                    .Select(p => new { p.Id, p.Name, p.Category })
+                    .ToListAsync();
+
+                if (nullCategoryProducts.Any())
+                {
+                    // Log null category products for debugging
+                    System.Diagnostics.Debug.WriteLine($"Found {nullCategoryProducts.Count} products with null categories");
+                }
+
                 var products = _db.Products.AsQueryable();
 
-                // Apply search filter
+                // Apply search filter with null checks
                 if (!string.IsNullOrEmpty(search))
-                    products = products.Where(p => p.Name.Contains(search) || p.Category.Contains(search));
+                    products = products.Where(p => (p.Name != null && p.Name.Contains(search)) || 
+                                                 (p.Category != null && p.Category.Contains(search)));
 
-                // Apply category filter
+                // Apply category filter with null check
                 if (!string.IsNullOrEmpty(category))
-                    products = products.Where(p => p.Category == category);
+                    products = products.Where(p => p.Category != null && p.Category == category);
 
                 // Get total count for pagination
                 var totalProducts = await products.CountAsync();
@@ -73,8 +168,9 @@ namespace Stationary.Controllers
                     .Take(pageSize)
                     .ToListAsync();
 
-                // Get unique categories for filter dropdown
+                // Get unique categories for filter dropdown with null check
                 var categories = await _db.Products
+                    .Where(p => !string.IsNullOrEmpty(p.Category))
                     .Select(p => p.Category)
                     .Distinct()
                     .ToListAsync();
@@ -94,8 +190,12 @@ namespace Stationary.Controllers
             }
             catch (Exception ex)
             {
+                // Log the exception details for debugging
+                System.Diagnostics.Debug.WriteLine($"Error in AdminController.Products: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"StackTrace: {ex.StackTrace}");
+                
                 // Log the exception (in production, use proper logging)
-                TempData["Error"] = "An error occurred while loading products.";
+                TempData["Error"] = $"An error occurred while loading products: {ex.Message}";
                 return View(new List<Product>());
             }
         }

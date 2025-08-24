@@ -20,6 +20,9 @@ namespace Stationary.Services
 
         public async Task<IEnumerable<Product>> GetProductsByCategoryAsync(string category)
         {
+            if (string.IsNullOrEmpty(category))
+                return await GetAllProductsAsync();
+
             return await _db.Products
                 .Where(p => p.Category == category)
                 .ToListAsync();
@@ -31,7 +34,8 @@ namespace Stationary.Services
                 return await GetAllProductsAsync();
 
             return await _db.Products
-                .Where(p => p.Name.Contains(searchTerm) || p.Category.Contains(searchTerm))
+                .Where(p => (p.Name != null && p.Name.Contains(searchTerm)) || 
+                           (p.Category != null && p.Category.Contains(searchTerm)))
                 .ToListAsync();
         }
 
@@ -42,6 +46,9 @@ namespace Stationary.Services
 
         public async Task<Product> CreateProductAsync(Product product)
         {
+            // Ensure all values are valid before saving
+            product.EnsureValidValues();
+            
             _db.Products.Add(product);
             await _db.SaveChangesAsync();
             return product;
@@ -53,6 +60,9 @@ namespace Stationary.Services
             if (existingProduct == null)
                 throw new InvalidOperationException("Product not found");
 
+            // Ensure all values are valid before updating
+            product.EnsureValidValues();
+            
             existingProduct.Name = product.Name;
             existingProduct.Category = product.Category;
             existingProduct.Price = product.Price;
@@ -77,6 +87,7 @@ namespace Stationary.Services
         public async Task<IEnumerable<string>> GetCategoriesAsync()
         {
             return await _db.Products
+                .Where(p => !string.IsNullOrEmpty(p.Category))
                 .Select(p => p.Category)
                 .Distinct()
                 .ToListAsync();
