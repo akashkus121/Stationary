@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Stationary.Data;
 using QuestPDF.Infrastructure;
+using Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
