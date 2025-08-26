@@ -86,6 +86,26 @@ namespace Stationary.Services
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Product>> GetProductsByCategoryAsync(string category)
+        {
+            if (_useStoredProcedures)
+                return await GetProductsWithSPAsync("all", category);
+            
+            return await _db.Products
+                .Where(p => p.Category == category && p.IsVisible)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Product>> SearchProductsAsync(string searchTerm)
+        {
+            if (_useStoredProcedures)
+                return await GetProductsWithSPAsync("all", null, searchTerm);
+            
+            return await _db.Products
+                .Where(p => (p.Name.Contains(searchTerm) || p.Category.Contains(searchTerm)) && p.IsVisible)
+                .ToListAsync();
+        }
+
         public async Task<Product?> GetProductByIdAsync(int id)
         {
             return await _db.Products.FirstOrDefaultAsync(p => p.Id == id);
